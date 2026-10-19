@@ -292,78 +292,101 @@ def play_slot_text(message):
         bot.send_message(message.chat.id, f"😔 Ұтылдың (-{stake} ⭐️). Тағы бағыңды сынап көр!")
 
 # --- 2-ОЙЫН: ЕВРОПА РУЛЕТКАСЫ (0-36) ---
-@bot.message_handler(func=lambda m: m.text and m.text.lower().startswith("рулетка"))
+# --- ЕВРОПА РУЛЕТКАСЫ (Диапазон, Түс, Сан және коэффициенттер) ---
+RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+
+@bot.message_handler(func=lambda message: message.text.lower().startswith('рулетка'))
 def play_roulette_text(message):
-    user_id = message.from_user.id
-    parts = message.text.split()
-
-    if len(parts) < 3:
-        bot.reply_to(
-            message, 
-            "⚠️ **Қате формат!**\n\n"
-            "👉 Санға ставка: `рулетка 17 2` (0-36 аралығында)\n"
-            "👉 Түске ставка: `рулетка красное 5` немесе `рулетка черное 5`", 
-            parse_mode="Markdown"
-        )
-        return
-
-    choice = parts[1].lower()
     try:
-        stake = int(parts[2])
-    except ValueError:
-        bot.reply_to(message, "❌ Ставка санда болуы тиіс! Мысалы: `рулетка 17 2`", parse_mode="Markdown")
-        return
+        parts = message.text.split()
+        if len(parts) < 3:
+            bot.reply_to(message, "❌ **Қате формат!**\n\nМысалдар:\n• `рулетка 10 17` (санға)\n• `рулетка 10 к` (қызылға)\n• `рулетка 10 1-5` (диапазонға)", parse_mode="Markdown")
+            return
 
-    bal = get_user(user_id)
+        stake = int(parts[1])
+        choice = parts[2].lower()
 
-    if stake <= 0 or bal < stake:
-        bot.reply_to(message, f"❌ Баланста звезда жеткіліксіз! Сізде: {bal} ⭐️", parse_mode="Markdown")
-        return
+        user_id = message.from_user.id
+        balance = get_user(user_id)[1]
 
-    winning_number = random.randint(0, 36)
-    
-    if winning_number == 0:
-        winning_color = "зеленое"
-        color_emoji = "🟢"
-    elif winning_number in RED_NUMBERS:
-        winning_color = "красное"
-        color_emoji = "🔴"
-    else:
-        winning_color = "черное"
-        color_emoji = "⚫"
+        if stake <= 0:
+            bot.reply_to(message, "❌ Ставка 0-ден үлкен болуы тиіс!")
+            return
 
-    update_balance(user_id, -stake)
+        if balance < stake:
+            bot.reply_to(message, "❌ Балансыңда қаражат жеткіліксіз!")
+            return
 
-    result_text = f"🎡 **Рулетка айналуда...**\n\n🎯 Түскен сан: **{winning_number} {color_emoji}** ({winning_color.capitalize()})\n\n"
+        # Ставканы шегереміз
+        update_balance(user_id, -stake)
 
-    if choice in ["красное", "черное", "кызыл", "кара"]:
-        target_color = "красное" if choice in ["красное", "кызыл"] else "черное"
-        if winning_color == target_color:
-            win_amount = stake * 2
-            update_balance(user_id, win_amount)
-            result_text += f"🎉 **ҚҰТТЫҚТАЙМЫЗ!** Түсті таптың! Сен **+{win_amount} ⭐️** ұтып алдың!"
-        else:
-            result_text += f"😔 Өкінішке орай ұтылдың (-{stake} ⭐️). Түс сәйкес келмеді."
-    else:
-        try:
-            target_number = int(choice)
-            if target_number < 0 or target_number > 36:
-                bot.reply_to(message, "❌ Сан 0 мен 36 аралығында болуы тиіс!")
+        winning_number = random.randint(0, 36)
+        is_red = winning_number in RED_NUMBERS
+
+        result_text = f"🎰 **Рулетка айналуда...**\n\n🎯 Түскен сан: **{winning_number}** ({'🔴 Қызыл' if is_red else '⚫ Қара'})\n\n"
+
+        # 1. Диапазонға ставка (мысалы: 1-5)
+        if '-' in choice:
+            try:
+                start, end = map(int, choice.split('-'))
+                if not (0 <= start <= 36 and 0 <= end <= 36 and start <= end):
+                    bot.reply_to(message, "❌ Қате диапазон (0 мен 36 аралығында болуы тиіс).")
+                    update_balance(user_id, stake)
+                    return
+                
+                if start <= winning_number <= end:
+                    # Диапазон коэффициенті (аймақ қаншалықты тарылса, ұтыс соғұрлым үлкен)
+                    multiplier = round(36 / (end - start + 1), 1)
+                    win_amount = int(stake * multiplier)
+                    update_balance(user_id, win_amount)
+                    result_text += f"🎉 **ҰТЫС!** Сан диапазонға түсті ({multiplier}x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
+                else:
+                    result_text += "😞 Өкінішке орай, ұтылдың."
+            except ValueError:
+                bot.reply_to(message, "❌ Диапазон форматы қате! (Мысалы: 1-5)")
                 update_balance(user_id, stake)
                 return
 
-            if winning_number == target_number:
-                win_amount = stake * 36
+        # 2. Түске ставка (қызыл / қара / к / ч)
+        elif choice in ['қызыл', 'к', 'red']:
+            if is_red and winning_number != 0:
+                # Мұнда коэффициентті өзің қалағаныңша өзгерте аласың (мысалы: 1.5 немесе 1.8)
+                multiplier = 1.8 
+                win_amount = int(stake * multiplier)
                 update_balance(user_id, win_amount)
-                result_text += f"🚀 **СЕНСАЦИЯ!** ДӘЛ ТҮСТІҢ! Сен **36 есе** ұтып, **+{win_amount} ⭐️** алдың!"
+                result_text += f"🎉 **ҰТЫС!** Қызыл түсті ({multiplier}x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
             else:
-                result_text += f"😔 Өкінішке орай ұтылдың (-{stake} ⭐️). Түскен сан: {winning_number}."
-        except ValueError:
-            bot.reply_to(message, "❌ Қате таңдау! `красное`, `черное` немесе `0-36` санын жазыңыз.")
-            update_balance(user_id, stake)
-            return
+                result_text += "😞 Өкінішке орай, ұтылдың."
 
-    bot.send_message(message.chat.id, result_text, parse_mode="Markdown")
+        elif choice in ['қара', 'ч', 'black']:
+            if not is_red and winning_number != 0:
+                multiplier = 1.8
+                win_amount = int(stake * multiplier)
+                update_balance(user_id, win_amount)
+                result_text += f"🎉 **ҰТЫС!** Қара түсті ({multiplier}x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
+            else:
+                result_text += "😞 Өкінішке орай, ұтылдың."
+
+        # 3. Нақты санға ставка (0-36)
+        else:
+            try:
+                target_number = int(choice)
+                if target_number == winning_number:
+                    win_amount = stake * 36
+                    update_balance(user_id, win_amount)
+                    result_text += f"🚀 **СУПЕР ҰТЫС!** Дәл таптың (36x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
+                else:
+                    result_text += "😞 Өкінішке орай, ұтылдың."
+            except ValueError:
+                bot.reply_to(message, "❌ Қате таңдау! (Сан, 'к'/'ч' немесе 1-5 диапазонын жаз)", parse_mode="Markdown")
+                update_balance(user_id, stake)
+                return
+
+        bot.send_message(message.chat.id, result_text, parse_mode="Markdown")
+
+    except ValueError:
+        bot.reply_to(message, "❌ Ставка санда болуы тиіс!\nМысалы: `рулетка 1 1-5`", parse_mode="Markdown")
+
 
 # --- АВТО-ҚАЙТА ҚОСЫЛУ ЦИКЛЫ ---
     # Боттың үзіліссіз жұмыс істеуі үшін (polling орнына)
