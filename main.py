@@ -1,16 +1,35 @@
+from threading import Thread
+from flask import Flask
 import sqlite3
 import random
 import time
 from telebot import TeleBot, types
 
-# Бот токені
-TOKEN = "8506986123:AAEFtXkt65gxK5681RLLYNjb5AdjdziIZRw"
+# Render үшін веб-сервер
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Бот жұмыс істеп тұр!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+# Серверді фонода іске қосу
+keep_alive()
+
+# Ботыңның токені
+TOKEN = "8506986123:AAEFTxKt65gXK5681" # Осы жерге толық токеніңді қой
 bot = TeleBot(TOKEN)
 
 # Сенің Telegram ID-ің (Админ)
 ADMIN_ID = 8851679127
 
-# Рулеткадағы қызыл сандар (Европа рулеткасы)
+# Рулеткадағы қызыл сандар
 RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
 
 # --- БАЗА ДАННЫХ (SQLite) ---
