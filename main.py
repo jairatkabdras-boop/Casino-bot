@@ -366,10 +366,13 @@ def play_roulette_text(message):
     bot.send_message(message.chat.id, result_text, parse_mode="Markdown")
 
 # --- АВТО-ҚАЙТА ҚОСЫЛУ ЦИКЛЫ ---
+    # Боттың үзіліссіз жұмыс істеуі үшін (polling орнына)
+import time
+
 while True:
-    try:
-        print("Бот іске қосылды және жұмыс істеп тұр...")
-        bot.polling(none_stop=True, interval=0, timeout=20)
-    except Exception as e:
-        print(f"Интернет үзілді немесе қате шықты: {e}")
-        time.sleep(5)
+  try:
+    bot.infinity_polling(timeout=10, long_polling_timeout=5)
+  except Exception as e:
+    print(f"Қате орын алды: {e}")
+    time.sleep(3)
+
