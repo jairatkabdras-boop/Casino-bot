@@ -23,7 +23,7 @@ def keep_alive():
 keep_alive()
 
 # Ботыңның токені
-TOKEN = "8506986123:AAEFTxKt65gXK5681" # Осы жерге толық токеніңді қой
+TOKEN = "8506986123:AAFioXpfnTFPNJ3BPgOOAhheCNh6i08SdvE" # Осы жерге толық токеніңді қой
 bot = TeleBot(TOKEN)
 
 # Сенің Telegram ID-ің (Админ)
