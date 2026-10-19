@@ -293,7 +293,6 @@ def play_slot_text(message):
     update_balance(user_id, -stake)
     msg = bot.send_dice(message.chat.id, emoji="🎰")
     value = msg.dice.value
-
     if value == 64:
         win_amount = stake * 5
         update_balance(user_id, win_amount)
@@ -308,8 +307,10 @@ def play_slot_text(message):
 # --- 2-ОЙЫН: ЕВРОПА РУЛЕТКАСЫ (0-36) ---
 # --- ЕВРОПА РУЛЕТКАСЫ (Диапазон, Түс, Сан және коэффициенттер) ---
 RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
+# Бас әріппен немесе кіші әріппен жазылғанына қарамастан бәрін ұстайтын етіп өзгертеміз
+@bot.message_handler(func=lambda message: message.text and message.text.lower().strip().startswith('рулетка'))
+def play_roulette_text(message):
 
-@bot.message_handler(func=lambda message: message.text.lower().startswith('рулетка'))
 def play_roulette_text(message):
     try:
         parts = message.text.split()
