@@ -43,9 +43,6 @@ def admin_add_balance(message):
     else:
         bot.reply_to(message, "❌ Бұл команданы тек админ ғана қолдана алады!")
 
-# Рулеткадағы қызыл сандар
-RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
-
 # --- БАЗА ДАННЫХ (SQLite) ---
 conn = sqlite3.connect("casino.db", check_same_thread=False)
 cursor = conn.cursor()
@@ -90,9 +87,6 @@ def start(message):
         f"Салам, {message.from_user.first_name}! 🎰 Казино ботына қош келдің!\n\n"
         "🎮 **Қолжетімді ойындар:**\n"
         "🎰 **Слот:** `слоты [ставка]` (мысалы: `слоты 1`)\n"
-        "🎡 **Европа Рулеткасы (0-36):**\n"
-        "   • Санға: `рулетка [0-36] [ставка]` (мысалы: `рулетка 17 2`)\n"
-        "   • Түске: `рулетка красное [ставка]` немесе `рулетка черное [ставка]`\n\n"
         "Толық ақпарат алу үшін төмендегі **«🛠 Помощь»** батырмасын бас!",
         reply_markup=main_keyboard(),
         parse_mode="Markdown"
@@ -105,10 +99,6 @@ def help_menu(message):
         "Бұл жерде сен Telegram Stars арқылы ойнап, звездаларыңды бірнеше есе көбейте аласың! 🚀\n\n"
         "📌 **Ойын түрлері:**\n"
         "1️⃣ **Слот ойыны:** `слоты 3`\n"
-        "   • 🎰 Джекпот (64) — **5 есе** ұтыс!\n\n"
-        "2️⃣ **Европа Рулеткасы (0-36):**\n"
-        "   • **Санға ставка:** `рулетка 17 2` (0-ден 36-ға дейін) — **36 есе** ұтыс! 🎯\n"
-        "   • **Түске ставка:** `рулетка красное 5` немесе `рулетка черное 5` — **2 есе** ұтыс! 🔴⚫\n\n"
         "💸 **⭐ Звезда Шығару** батырмасы арқылы жинаған звездаларыңызды өзіңізге қайтарып ала аласыз!\n\n"
         "Бағыңызды сынап көріңіз, мүмкіндікті жіберіп алмаңыз! 👑"
     )
@@ -303,105 +293,6 @@ def play_slot_text(message):
         bot.send_message(message.chat.id, f"🎉 Ұттың! Сен **+{win_amount} ⭐️** алдың!", parse_mode="Markdown")
     else:
         bot.send_message(message.chat.id, f"😔 Ұтылдың (-{stake} ⭐️). Тағы бағыңды сынап көр!")
-
-# --- 2-ОЙЫН: ЕВРОПА РУЛЕТКАСЫ (0-36) ---
-# --- ЕВРОПА РУЛЕТКАСЫ (Диапазон, Түс, Сан және коэффициенттер) ---
-RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
-# Бас әріппен немесе кіші әріппен жазылғанына қарамастан бәрін ұстайтын етіп өзгертеміз
-@bot.message_handler(func=lambda message: message.text and message.text.lower().strip().startswith('рулетка'))
-def play_roulette_text(message):
-
-def play_roulette_text(message):
-    try:
-        parts = message.text.split()
-        if len(parts) < 3:
-            bot.reply_to(message, "❌ **Қате формат!**\n\nМысалдар:\n• `рулетка 10 17` (санға)\n• `рулетка 10 к` (қызылға)\n• `рулетка 10 1-5` (диапазонға)", parse_mode="Markdown")
-            return
-
-        stake = int(parts[1])
-        choice = parts[2].lower()
-
-        user_id = message.from_user.id
-        balance = get_user(user_id)[1]
-
-        if stake <= 0:
-            bot.reply_to(message, "❌ Ставка 0-ден үлкен болуы тиіс!")
-            return
-
-        if balance < stake:
-            bot.reply_to(message, "❌ Балансыңда қаражат жеткіліксіз!")
-            return
-
-        # Ставканы шегереміз
-        update_balance(user_id, -stake)
-
-        winning_number = random.randint(0, 36)
-        is_red = winning_number in RED_NUMBERS
-
-        result_text = f"🎰 **Рулетка айналуда...**\n\n🎯 Түскен сан: **{winning_number}** ({'🔴 Қызыл' if is_red else '⚫ Қара'})\n\n"
-
-        # 1. Диапазонға ставка (мысалы: 1-5)
-        if '-' in choice:
-            try:
-                start, end = map(int, choice.split('-'))
-                if not (0 <= start <= 36 and 0 <= end <= 36 and start <= end):
-                    bot.reply_to(message, "❌ Қате диапазон (0 мен 36 аралығында болуы тиіс).")
-                    update_balance(user_id, stake)
-                    return
-                
-                if start <= winning_number <= end:
-                    # Диапазон коэффициенті (аймақ қаншалықты тарылса, ұтыс соғұрлым үлкен)
-                    multiplier = round(36 / (end - start + 1), 1)
-                    win_amount = int(stake * multiplier)
-                    update_balance(user_id, win_amount)
-                    result_text += f"🎉 **ҰТЫС!** Сан диапазонға түсті ({multiplier}x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
-                else:
-                    result_text += "😞 Өкінішке орай, ұтылдың."
-            except ValueError:
-                bot.reply_to(message, "❌ Диапазон форматы қате! (Мысалы: 1-5)")
-                update_balance(user_id, stake)
-                return
-
-        # 2. Түске ставка (қызыл / қара / к / ч)
-        elif choice in ['қызыл', 'к', 'red']:
-            if is_red and winning_number != 0:
-                # Мұнда коэффициентті өзің қалағаныңша өзгерте аласың (мысалы: 1.5 немесе 1.8)
-                multiplier = 1.8 
-                win_amount = int(stake * multiplier)
-                update_balance(user_id, win_amount)
-                result_text += f"🎉 **ҰТЫС!** Қызыл түсті ({multiplier}x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
-            else:
-                result_text += "😞 Өкінішке орай, ұтылдың."
-
-        elif choice in ['қара', 'ч', 'black']:
-            if not is_red and winning_number != 0:
-                multiplier = 1.8
-                win_amount = int(stake * multiplier)
-                update_balance(user_id, win_amount)
-                result_text += f"🎉 **ҰТЫС!** Қара түсті ({multiplier}x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
-            else:
-                result_text += "😞 Өкінішке орай, ұтылдың."
-
-        # 3. Нақты санға ставка (0-36)
-        else:
-            try:
-                target_number = int(choice)
-                if target_number == winning_number:
-                    win_amount = stake * 36
-                    update_balance(user_id, win_amount)
-                    result_text += f"🚀 **СУПЕР ҰТЫС!** Дәл таптың (36x)!\n💰 Ұтып алдың: **+{win_amount}** Звезда"
-                else:
-                    result_text += "😞 Өкінішке орай, ұтылдың."
-            except ValueError:
-                bot.reply_to(message, "❌ Қате таңдау! (Сан, 'к'/'ч' немесе 1-5 диапазонын жаз)", parse_mode="Markdown")
-                update_balance(user_id, stake)
-                return
-
-        bot.send_message(message.chat.id, result_text, parse_mode="Markdown")
-
-    except ValueError:
-        bot.reply_to(message, "❌ Ставка санда болуы тиіс!\nМысалы: `рулетка 1 1-5`", parse_mode="Markdown")
-
 
 # --- АВТО-ҚАЙТА ҚОСЫЛУ ЦИКЛЫ ---
     # Боттың үзіліссіз жұмыс істеуі үшін (polling орнына)
