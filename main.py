@@ -28,6 +28,20 @@ bot = TeleBot(TOKEN)
 
 # Сенің Telegram ID-ің (Админ)
 ADMIN_ID = 8851679127
+# Админге баланс қосу командасы: /add [сан]
+@bot.message_handler(commands=['add'])
+def admin_add_balance(message):
+    if message.from_user.id == ADMIN_ID: # Админ екеніңді тексеру
+        try:
+            parts = message.text.split()
+            amount = int(parts[1])
+            user_id = message.from_user.id
+            update_balance(user_id, amount)
+            bot.reply_to(message, f"✅ Балансыңа **+{amount}** звезда қосылды!", parse_mode="Markdown")
+        except (IndexError, ValueError):
+            bot.reply_to(message, "❌ Қате формат! Мысалы: `/add 10`", parse_mode="Markdown")
+    else:
+        bot.reply_to(message, "❌ Бұл команданы тек админ ғана қолдана алады!")
 
 # Рулеткадағы қызыл сандар
 RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]
